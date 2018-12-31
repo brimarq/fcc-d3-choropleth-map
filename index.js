@@ -52,7 +52,7 @@ const svgProps = {};
   svgProps.legend = {
     width: 330,
     height: 20,
-    numColors: 11
+    numColors: 8
   };
 
 function drawSvg() {
@@ -61,6 +61,26 @@ function drawSvg() {
   // NOTE: geodata county object ids correspond to fips in edudata
   
   const counties = topojson.feature(data, data.objects.counties);
+  const states = topojson.feature(data, data.objects.states);
+
+  const eduRates = data.objects.counties.geometries.map(x => x.properties.bachelorsOrHigher);
+
+  console.log(d3.extent(eduRates));
+
+  function getThresholdDomain(minValue, maxValue, numGroups) {
+    let domainArr = [],
+    groupSize = (maxValue - minValue) / numGroups;
+    
+    for (let i = 0; i < numGroups; i++) {
+      domainArr.push(+d3.format(".1~f")(minValue + (groupSize * i)));
+    }
+    return domainArr;
+  }
+
+  const colorScale = d3.scaleThreshold()
+    .domain(getThresholdDomain(d3.min(eduRates), d3.max(eduRates), svgProps.legend.numColors))
+    .range(d3.schemePurples[svgProps.legend.numColors])
+  ;
   
 
   // function matrix(a, b, c, d, tx, ty) {
@@ -89,8 +109,16 @@ function drawSvg() {
   let projection = d3.geoIdentity()
     .fitExtent([[0, 0],[svgProps.innerWidth, svgProps.innerHeight]], counties)
   ;
+
+  // geoIdentity "projection" for the actual pre-projected topoJSON states, in order to scale and position the map
+  let projectionStates = d3.geoIdentity()
+    .fitExtent([[0, 0],[svgProps.innerWidth, svgProps.innerHeight]], states)
+  ;
+
   // Path for use with geoIdentity projection
   let path = d3.geoPath().projection(projection);
+  // Path for use with geoIdentity projection
+  let pathStates = d3.geoPath().projection(projectionStates);
 
   // const projection = 
   // projection default size = 999.08 wide, 583.09 high
@@ -134,15 +162,25 @@ function drawSvg() {
     .attr("class", "county")
     .each(function(d) {
       let fips = d.properties.fips,
-        edu = d.properties.bachelorsOrHigher
+        eduRate = d.properties.bachelorsOrHigher
       ;
       d3.select(this).attr("data-fips", fips)
-      d3.select(this).attr("data-education", edu)
+      d3.select(this).attr("data-education", eduRate)
+      d3.select(this).style("fill", colorScale(eduRate))
     })
     // .attr("data-fips", function(d) { return d.properties.fips; })
     // .attr("data-education", function(d) { return d.properties.bachelorsOrHigher; })
-    .style("fill", "#777")
+    // .style("fill", "#777")
     
+  ;
+
+  choropleth.append("path")
+    .datum(topojson.mesh(data, data.objects.states, function(a, b) { return a.id !== b.id; }))
+    .attr("class", "states")
+    .attr("fill", "none")
+    .attr("d", pathStates)
+    .attr("stroke-width", 1)
+    .attr("stroke", "white")
   ;
 
 
