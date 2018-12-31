@@ -17,10 +17,22 @@ const dataUrls = [usCountyData, usEducationData];
 
 let data = {};
 
+/** Fetch json data, then match and merge corresponding eduData into topoJSON data and draw the svg */
 Promise.all(dataUrls.map(url => d3.json(url)))
-  .then(function(values) {
-    data.geo = values[0];
-    data.edu = values[1];
+  .then(function(rcvdData) {
+    data = rcvdData[0]; 
+    let eduData = rcvdData[1];
+    for (let i = 0; i < data.objects.counties.geometries.length; i++) {
+      let county = data.objects.counties.geometries[i];
+      for (let j = 0; j < eduData.length; j++) {
+        let fips = eduData[j].fips;
+        if (county.id === fips) {
+          county.properties = eduData[j];
+          break;
+        }
+      }
+    }
+    
     drawSvg();
   })
 ;
@@ -48,29 +60,24 @@ function drawSvg() {
   console.log(data);
   // NOTE: geodata county object ids correspond to fips in edudata
   
-
-  
-  
-
-  
-  const counties = topojson.feature(data.geo, data.geo.objects.counties);
+  const counties = topojson.feature(data, data.objects.counties);
   
 
-  function matrix(a, b, c, d, tx, ty) {
-    return d3.geoTransform({
-      point: function(x, y) {
-        this.stream.point(a * x + b * y + tx, c * x + d * y + ty);
-      }
-    });
-  }
+  // function matrix(a, b, c, d, tx, ty) {
+  //   return d3.geoTransform({
+  //     point: function(x, y) {
+  //       this.stream.point(a * x + b * y + tx, c * x + d * y + ty);
+  //     }
+  //   });
+  // }
 
-  function scaleAndCenter(scaleFactor, width, height) {
-    return d3.geoTransform({
-        point: function(x, y) {
-            this.stream.point( (x - width/2) * scaleFactor + width/2 , (y - height/2) * scaleFactor + height/2);
-        }
-    });
-  }
+  // function scaleAndCenter(scaleFactor, width, height) {
+  //   return d3.geoTransform({
+  //       point: function(x, y) {
+  //           this.stream.point( (x - width/2) * scaleFactor + width/2 , (y - height/2) * scaleFactor + height/2);
+  //       }
+  //   });
+  // }
 
   // Path for use with matrix transform
   // let path = d3.geoPath().projection(matrix(svgProps.innerWidth / 999.08, 0, 0, .9, svgProps.margin.left, 0));
@@ -116,7 +123,6 @@ function drawSvg() {
     .attr("stroke-width", 1)
   ;
   
-
   choropleth.append("g")
     .attr("id", "counties")
     .style("outline", "1px solid lime")
@@ -125,6 +131,16 @@ function drawSvg() {
     .enter()
     .append("path")
     .attr("d", path)
+    .attr("class", "county")
+    .each(function(d) {
+      let fips = d.properties.fips,
+        edu = d.properties.bachelorsOrHigher
+      ;
+      d3.select(this).attr("data-fips", fips)
+      d3.select(this).attr("data-education", edu)
+    })
+    // .attr("data-fips", function(d) { return d.properties.fips; })
+    // .attr("data-education", function(d) { return d.properties.bachelorsOrHigher; })
     .style("fill", "#777")
     
   ;
