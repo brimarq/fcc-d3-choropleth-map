@@ -39,26 +39,30 @@ Promise.all(dataUrls.map(url => d3.json(url)))
 
 /** Set properties for the svg element */
 const svgProps = {};
-  svgProps.outerWidth = 1000;
-  svgProps.outerHeight = svgProps.outerWidth / 1.6; // 16:10 aspect ratio
-  svgProps.margin = {
-    top: svgProps.outerHeight * 0.1, 
-    right: svgProps.outerWidth * 0.05, 
-    bottom: svgProps.outerHeight * 0.05, 
-    left: svgProps.outerWidth * 0.05
-  };
-  svgProps.innerWidth = svgProps.outerWidth - svgProps.margin.left - svgProps.margin.right;
-  svgProps.innerHeight = svgProps.outerHeight - svgProps.margin.top - svgProps.margin.bottom;
-  svgProps.legend = {
-    width: 330,
-    height: 20,
-    numColors: 8
-  };
+svgProps.outerWidth = 1000;
+svgProps.outerHeight = svgProps.outerWidth / 1.6; // 16:10 aspect ratio
+svgProps.margin = {
+  top: svgProps.outerHeight * 0.1, 
+  right: svgProps.outerWidth * 0.05, 
+  bottom: svgProps.outerHeight * 0.05, 
+  left: svgProps.outerWidth * 0.05
+};
+svgProps.innerWidth = svgProps.outerWidth - svgProps.margin.left - svgProps.margin.right;
+svgProps.innerHeight = svgProps.outerHeight - svgProps.margin.top - svgProps.margin.bottom;
+svgProps.legend = {
+  width: 330,
+  height: 20,
+  numColors: 8
+};
+
+
 
 function drawSvg() {
 
   console.log(data);
   // NOTE: geodata county object ids correspond to fips in edudata
+
+  
   
   const counties = topojson.feature(data, data.objects.counties);
   const states = topojson.feature(data, data.objects.states);
@@ -110,15 +114,9 @@ function drawSvg() {
     .fitExtent([[0, 0],[svgProps.innerWidth, svgProps.innerHeight]], counties)
   ;
 
-  // geoIdentity "projection" for the actual pre-projected topoJSON states, in order to scale and position the map
-  let projectionStates = d3.geoIdentity()
-    .fitExtent([[0, 0],[svgProps.innerWidth, svgProps.innerHeight]], states)
-  ;
-
   // Path for use with geoIdentity projection
   let path = d3.geoPath().projection(projection);
-  // Path for use with geoIdentity projection
-  let pathStates = d3.geoPath().projection(projectionStates);
+  
 
   // const projection = 
   // projection default size = 999.08 wide, 583.09 high
@@ -133,6 +131,41 @@ function drawSvg() {
     .attr("width", svgProps.outerWidth)
     .attr("height", svgProps.outerHeight)
   ;
+
+  const defs = svg.append("defs");
+  defs.append("filter").attr("id", "blur")
+    .append("feGaussianBlur").attr("stdDeviation", 4)
+  ;
+
+  defs.append("path")
+    .datum(topojson.feature(data, data.objects.nation, function(a, b) { return a.id !== b.id; }))
+    .attr("id", "nation")
+    .attr("d", path)
+  ;
+
+  /** svg title text */
+  const titleGroup = svg.append("g").attr("id", "title-group").style("text-anchor", "middle");
+  titleGroup.append("text")
+    .attr("id", "title")
+    .attr("fill", "#222")
+    .style("font-size", "1.25em")
+    .style("font-weight", "bold")
+    .text("United States Educational Attainment")
+  titleGroup.append("text")
+    .attr("id", "description")
+    .attr("dy", "1.25em")
+    .attr("fill", "#222")
+    .style("font-weight", "normal")
+    .style("font-size", "1em")
+    .text("Percentage of adults age 25 and older with a baccalaureate degree or higher (2010-2014)")
+  ;
+  // Center titleGroup horizontally on svg and vertically within top margin.
+  titleGroup.attr("transform", function() {
+    let gHeight = this.getBBox().height;
+    let x = svgProps.outerWidth / 2;
+    let y = ((svgProps.margin.top - gHeight) / 2) + (gHeight / 2);
+    return "translate(" + x + ", " + y + ")";
+  });
 
   /** Create choropleth group */
   const choropleth = svg.append("g")
@@ -150,6 +183,8 @@ function drawSvg() {
     .attr("stroke", "red")
     .attr("stroke-width", 1)
   ;
+
+  
   
   choropleth.append("g")
     .attr("id", "counties")
@@ -168,9 +203,6 @@ function drawSvg() {
       d3.select(this).attr("data-education", eduRate)
       d3.select(this).style("fill", colorScale(eduRate))
     })
-    // .attr("data-fips", function(d) { return d.properties.fips; })
-    // .attr("data-education", function(d) { return d.properties.bachelorsOrHigher; })
-    // .style("fill", "#777")
     
   ;
 
@@ -178,7 +210,7 @@ function drawSvg() {
     .datum(topojson.mesh(data, data.objects.states, function(a, b) { return a.id !== b.id; }))
     .attr("class", "states")
     .attr("fill", "none")
-    .attr("d", pathStates)
+    .attr("d", path)
     .attr("stroke-width", 1)
     .attr("stroke", "white")
   ;
