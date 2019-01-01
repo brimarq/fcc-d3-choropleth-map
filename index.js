@@ -55,7 +55,19 @@ svgProps.legend = {
   numColors: 8
 };
 
-
+/** Create hidden tooltip div */
+const tooltip = d3.select("body")
+  .append("div")
+  .attr("id", "tooltip")
+  .style("position", "absolute")
+  .style("z-index", "10")
+  .style("background", "hsla(0, 0%, 0%, .8)")
+  .style("visibility", "hidden")
+  .each(function() {
+    d3.select(this).append("span").attr("id", "area");
+    d3.select(this).append("span").attr("id", "education-rate");
+  })
+;
 
 function drawSvg() {
 
@@ -202,6 +214,33 @@ function drawSvg() {
       d3.select(this).attr("data-fips", fips)
       d3.select(this).attr("data-education", eduRate)
       d3.select(this).style("fill", colorScale(eduRate))
+    })
+    .on("mouseover", function(d) {
+      let dataset = this.dataset
+      area = d.properties.area_name + ", " + d.properties.state, 
+      eduRate = d.properties.bachelorsOrHigher + "%"
+      ;
+ 
+      // d3.select(this).attr("stroke", "lime");
+      // d3.select(this).attr("stroke-width", 1.5);
+      
+      tooltip
+        .style("visibility", "visible")
+        .attr("data-education", dataset.education)
+        .each(function() {
+          d3.select("#area").text(area);
+          d3.select("#education-rate").text(eduRate);
+        })
+      ;
+    })
+    .on("mousemove", function(d) { 
+      tooltip
+        .style("top", (d3.event.pageY - 70) + "px")
+        .style("left", (d3.event.pageX + 20) + "px");
+    })
+    .on("mouseout", function() {
+      // d3.select(this).attr("stroke", "none");
+      tooltip.style("visibility", "hidden");
     })
     
   ;
