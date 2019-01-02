@@ -1,14 +1,3 @@
-
-// let json, req = new XMLHttpRequest();
-
-/** Send http req */
-// req.open("GET", dataUrl ,true);
-// req.send();
-// req.onload = function() {
-//   json = JSON.parse(req.responseText);
-//   d3.select("main div#svg-container").text(JSON.stringify(json));
-// };
-
 const usCountyData = "https://raw.githubusercontent.com/no-stack-dub-sack/testable-projects-fcc/master/src/data/choropleth_map/counties.json"; 
 
 const usEducationData = "https://raw.githubusercontent.com/no-stack-dub-sack/testable-projects-fcc/master/src/data/choropleth_map/for_user_education.json";
@@ -42,17 +31,26 @@ const svgProps = {};
 svgProps.outerWidth = 1000;
 svgProps.outerHeight = svgProps.outerWidth / 1.6; // 16:10 aspect ratio
 svgProps.margin = {
-  top: svgProps.outerHeight * 0.1, 
-  right: svgProps.outerWidth * 0.05, 
-  bottom: svgProps.outerHeight * 0.05, 
-  left: svgProps.outerWidth * 0.05
+  top: svgProps.outerHeight * 0.05, 
+  right: svgProps.outerWidth * 0.02, 
+  bottom: svgProps.outerHeight * 0.02, 
+  left: svgProps.outerWidth * 0.02
 };
 svgProps.innerWidth = svgProps.outerWidth - svgProps.margin.left - svgProps.margin.right;
 svgProps.innerHeight = svgProps.outerHeight - svgProps.margin.top - svgProps.margin.bottom;
+svgProps.title = {
+  x: svgProps.outerWidth / 2,
+  y: svgProps.margin.top + 5,
+  text1: "United States Educational Attainment (2010-2014)",
+  text2: "Adults age 25 and above with a baccalaureate degree or higher",
+  color: "#222"
+};
 svgProps.legend = {
-  width: 330,
-  height: 20,
-  numColors: 8
+  width: 230,
+  height: 8,
+  numColors: 9,
+  x: svgProps.innerWidth - 250 - 60,
+  y: svgProps.margin.top + 15,
 };
 
 /** Create hidden tooltip div */
@@ -71,71 +69,23 @@ const tooltip = d3.select("body")
 
 function drawSvg() {
 
-  console.log(data);
-  // NOTE: geodata county object ids correspond to fips in edudata
-
-  
-  
   const counties = topojson.feature(data, data.objects.counties);
-  const states = topojson.feature(data, data.objects.states);
 
   const eduRates = data.objects.counties.geometries.map(x => x.properties.bachelorsOrHigher);
 
-  console.log(d3.extent(eduRates));
-
-  function getThresholdDomain(minValue, maxValue, numGroups) {
-    let domainArr = [],
-    groupSize = (maxValue - minValue) / numGroups;
-    
-    for (let i = 0; i < numGroups; i++) {
-      domainArr.push(+d3.format(".1~f")(minValue + (groupSize * i)));
-    }
-    return domainArr;
-  }
-
   const colorScale = d3.scaleThreshold()
-    .domain(getThresholdDomain(d3.min(eduRates), d3.max(eduRates), svgProps.legend.numColors))
-    .range(d3.schemePurples[svgProps.legend.numColors])
+    // Domain here uses d3.range(min, max, stepSize)
+    .domain(d3.range(...d3.extent(eduRates), (d3.max(eduRates) - d3.min(eduRates)) / svgProps.legend.numColors + 1))
+    .range(d3.schemeOranges[svgProps.legend.numColors])
   ;
-  
 
-  // function matrix(a, b, c, d, tx, ty) {
-  //   return d3.geoTransform({
-  //     point: function(x, y) {
-  //       this.stream.point(a * x + b * y + tx, c * x + d * y + ty);
-  //     }
-  //   });
-  // }
-
-  // function scaleAndCenter(scaleFactor, width, height) {
-  //   return d3.geoTransform({
-  //       point: function(x, y) {
-  //           this.stream.point( (x - width/2) * scaleFactor + width/2 , (y - height/2) * scaleFactor + height/2);
-  //       }
-  //   });
-  // }
-
-  // Path for use with matrix transform
-  // let path = d3.geoPath().projection(matrix(svgProps.innerWidth / 999.08, 0, 0, .9, svgProps.margin.left, 0));
-
-  // Path for use with scaleAndCenter transform
-  // let path = d3.geoPath().projection(scaleAndCenter(0.8, svgProps.outerWidth, svgProps.outerHeight))
-
-  // geoIdentity "projection" for the actual pre-projected topoJSON, in order to scale and position the map
+  // geoIdentity "projection" for the actual pre-projected topoJSON (999.08 wide, 583.09 high), in order to scale and position the map
   let projection = d3.geoIdentity()
     .fitExtent([[0, 0],[svgProps.innerWidth, svgProps.innerHeight]], counties)
   ;
 
   // Path for use with geoIdentity projection
   let path = d3.geoPath().projection(projection);
-  
-
-  // const projection = 
-  // projection default size = 999.08 wide, 583.09 high
-
-  
-  
-
 
   /** Create svg element */
   const svg = d3.select("main div#svg-container")
@@ -144,63 +94,37 @@ function drawSvg() {
     .attr("height", svgProps.outerHeight)
   ;
 
-  const defs = svg.append("defs");
-  defs.append("filter").attr("id", "blur")
-    .append("feGaussianBlur").attr("stdDeviation", 4)
-  ;
-
-  defs.append("path")
-    .datum(topojson.feature(data, data.objects.nation, function(a, b) { return a.id !== b.id; }))
-    .attr("id", "nation")
-    .attr("d", path)
-  ;
-
   /** svg title text */
-  const titleGroup = svg.append("g").attr("id", "title-group").style("text-anchor", "middle");
+  const titleGroup = svg.append("g")
+    .attr("id", "title-group")
+    .attr("transform", "translate(" + svgProps.title.x + ", " + svgProps.title.y + ")")
+    .style("text-anchor", "middle")
+  ;
   titleGroup.append("text")
     .attr("id", "title")
-    .attr("fill", "#222")
+    .attr("fill", svgProps.title.color)
     .style("font-size", "1.25em")
     .style("font-weight", "bold")
-    .text("United States Educational Attainment")
+    .text(svgProps.title.text1)
+  ;
   titleGroup.append("text")
     .attr("id", "description")
     .attr("dy", "1.25em")
-    .attr("fill", "#222")
+    .attr("fill", svgProps.title.color)
     .style("font-weight", "normal")
-    .style("font-size", "1em")
-    .text("Percentage of adults age 25 and older with a baccalaureate degree or higher (2010-2014)")
+    .style("font-size", ".8em")
+    .text(svgProps.title.text2)
   ;
-  // Center titleGroup horizontally on svg and vertically within top margin.
-  titleGroup.attr("transform", function() {
-    let gHeight = this.getBBox().height;
-    let x = svgProps.outerWidth / 2;
-    let y = ((svgProps.margin.top - gHeight) / 2) + (gHeight / 2);
-    return "translate(" + x + ", " + y + ")";
-  });
-
+  
   /** Create choropleth group */
   const choropleth = svg.append("g")
     .attr("id", "choropleth-map")
-    // .style("outline", "1px solid lime")
     .attr("transform", "translate(" + svgProps.margin.left + ", " + svgProps.margin.top + ")")
   ;
-
-  choropleth.append("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", svgProps.innerWidth)
-    .attr("height", svgProps.innerHeight)
-    .attr("fill", "none")
-    .attr("stroke", "red")
-    .attr("stroke-width", 1)
-  ;
-
   
-  
+  /** Draw the counties, bind data, color, mouse events */
   choropleth.append("g")
     .attr("id", "counties")
-    .style("outline", "1px solid lime")
     .selectAll("path")
     .data(counties.features)
     .enter()
@@ -220,9 +144,6 @@ function drawSvg() {
       area = d.properties.area_name + ", " + d.properties.state, 
       eduRate = d.properties.bachelorsOrHigher + "%"
       ;
- 
-      // d3.select(this).attr("stroke", "lime");
-      // d3.select(this).attr("stroke-width", 1.5);
       
       tooltip
         .style("visibility", "visible")
@@ -239,12 +160,11 @@ function drawSvg() {
         .style("left", (d3.event.pageX + 20) + "px");
     })
     .on("mouseout", function() {
-      // d3.select(this).attr("stroke", "none");
       tooltip.style("visibility", "hidden");
     })
-    
   ;
 
+  /** Add state boundaries */
   choropleth.append("path")
     .datum(topojson.mesh(data, data.objects.states, function(a, b) { return a.id !== b.id; }))
     .attr("class", "states")
@@ -254,6 +174,42 @@ function drawSvg() {
     .attr("stroke", "white")
   ;
 
+  /** Legend */
+  const legendX = d3.scaleLinear()
+    .domain(d3.extent(eduRates))
+    .range([0, svgProps.legend.width])
+  ;
+
+  const legendXAxis = d3.axisBottom(legendX)
+    .tickSize(11)
+    .tickValues(colorScale.domain())
+    .tickFormat((x) => Math.round(x) + "%")
+  ;
+
+  const legend = choropleth.append("g")
+    .attr("id", "legend")
+    .attr("transform", "translate(" + svgProps.legend.x + ", " + svgProps.legend.y + ")")
+  ;
+
+  legend.selectAll("rect")
+    .data(colorScale.range().map((d) => {
+      d = colorScale.invertExtent(d);
+      if (d[0] == null) d[0] = legendX.domain()[0];
+      if (d[1] == null) d[1] = legendX.domain()[1];
+      return d;
+    }))
+    .enter()
+    .append("rect")
+    .attr("x", (d) => legendX(d[0]))
+    .attr("y", 0)
+    .attr("width", (d) => (legendX(d[1]) - legendX(d[0])))
+    .attr("height", svgProps.legend.height)
+    .attr("fill", (d) => colorScale(d[0]))
+  ;
+
+  legend.append("g").call(legendXAxis);
+  // Remove the top line path of the axis
+  legend.select("path.domain").remove();
 
 }
 
